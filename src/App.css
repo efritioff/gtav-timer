@@ -291,16 +291,61 @@ img {
 
 #choice1,
 #choice2,
-#choice3 {
+#choice3,
+#nightclub-floors,
+#nightclub-products {
   display: contents;
 }
 
 #choice1 p,
 #choice2 p,
-#choice3 p {
+#choice3 p,
+#nightclub-floors p,
+#nightclub-products p {
   text-align: right;
   white-space: nowrap;
   margin: 0;
+}
+
+#nightclub-products {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 1rem;
+  align-items: start;
+  margin-top: 0.5rem;
+}
+
+.product-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.product-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.product-checkbox:hover {
+  background-color: var(--white-opacity-10-clr);
+}
+
+.product-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--red-cta);
+}
+
+.product-checkbox span {
+  flex: 1;
+  user-select: none;
 }
 
 .button-group {

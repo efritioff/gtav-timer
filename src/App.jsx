@@ -47,6 +47,16 @@ const BUSINESS_NAMES = {
   "import-export": "Import / Export",
 };
 
+const NIGHTCLUB_GOODS = [
+  { id: 'cargo', name: 'Cargo & Shipments' },
+  { id: 'sporting', name: 'Sporting Goods' },
+  { id: 'imports', name: 'South American Imports' },
+  { id: 'pharma', name: 'Pharmaceutical Research' },
+  { id: 'cash', name: 'Cash Creation' },
+  { id: 'organic', name: 'Organic Produce' },
+  { id: 'printing', name: 'Printing & Copying' },
+];
+
 // Production times: How long it takes to convert 100% supplies to 100% product (in seconds)
 // Based on actual GTA Online timings
 const PRODUCTION_TIME_SECONDS = {
@@ -92,6 +102,22 @@ function App() {
   const [choice3, setChoice3] = useState("no");
   const [isPaused, setIsPaused] = useState(false);
   const [selectedMarkerIndex, setSelectedMarkerIndex] = useState(0);
+  const [nightclubFloors, setNightclubFloors] = useState(() => {
+    try {
+      const saved = localStorage.getItem("nightclubFloors");
+      return saved ? parseInt(saved) : 1;
+    } catch {
+      return 1;
+    }
+  });
+  const [nightclubProducts, setNightclubProducts] = useState(() => {
+    try {
+      const saved = localStorage.getItem("nightclubProducts");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   useEffect(() => {
     const sliders = document.querySelectorAll(".slider");
@@ -122,6 +148,14 @@ function App() {
       JSON.stringify(businessLocations)
     );
   }, [businessLocations]);
+
+  useEffect(() => {
+    localStorage.setItem("nightclubFloors", nightclubFloors.toString());
+  }, [nightclubFloors]);
+
+  useEffect(() => {
+    localStorage.setItem("nightclubProducts", JSON.stringify(nightclubProducts));
+  }, [nightclubProducts]);
 
   // Production system: Convert supplies to product based on real GTA Online timings
   useEffect(() => {
@@ -258,6 +292,16 @@ function App() {
     setActiveBusinessPopup(businessId);
   };
 
+  const handleToggleNightclubProduct = (productId) => {
+    setNightclubProducts((prev) => {
+      if (prev.includes(productId)) {
+        return prev.filter(id => id !== productId);
+      } else {
+        return [...prev, productId];
+      }
+    });
+  };
+
   const getBusinessValue = (businessId, key) => {
     return businessData[businessId]?.[key] ?? 0;
   };
@@ -274,7 +318,23 @@ function App() {
   };
 
   const handleSell = (businessId) => {
-    setBusinessValue(businessId, "product", 0);
+    if (businessId === "nightclub") {
+      // Reset all nightclub product values to 0
+      setBusinessData((prev) => {
+        const updated = { ...prev };
+        const businessState = { ...updated[businessId] };
+        
+        nightclubProducts.forEach((productId) => {
+          const productKey = `nightclub_${productId}_product`;
+          businessState[productKey] = 0;
+        });
+        
+        updated[businessId] = businessState;
+        return updated;
+      });
+    } else {
+      setBusinessValue(businessId, "product", 0);
+    }
   };
 
   const handleSetLocation = () => {
@@ -349,6 +409,58 @@ function App() {
       ownedBusinesses.has(businessId) ||
       (activeBusinessPopup === businessId && choice1 === "yes") ||
       pickingLocationFor === businessId;
+
+    // Special rendering for nightclub
+    if (businessId === "nightclub") {
+      return (
+        <div
+          className="content"
+          style={{ display: shouldShow ? "block" : "none" }}
+        >
+          <table>
+            <tbody>
+              {nightclubProducts.map((productId) => {
+                const good = NIGHTCLUB_GOODS.find(g => g.id === productId);
+                const productKey = `nightclub_${productId}_product`;
+                const productVal = getBusinessValue(businessId, productKey) || 0;
+                
+                return (
+                  <tr key={productId} className="product">
+                    <td>
+                      <span>{good?.name}</span>
+                    </td>
+                    <td>
+                      <input
+                        type="range"
+                        className="slider product-slider"
+                        min="0"
+                        max="100"
+                        value={productVal}
+                        onChange={(e) =>
+                          setBusinessValue(
+                            businessId,
+                            productKey,
+                            parseInt(e.target.value)
+                          )
+                        }
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <div className="button-row">
+            <button
+              className="button blue"
+              onClick={() => handleSell(businessId)}
+            >
+              Sell
+            </button>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div
@@ -498,6 +610,39 @@ function App() {
               </button>
             </div>
           </div>
+          {activeBusinessPopup === "nightclub" && (
+            <>
+              <div id="nightclub-floors">
+                <p>Floors: Select 1-5</p>
+                <div className="button-group">
+                  {[1, 2, 3, 4, 5].map((floor) => (
+                    <button
+                      key={floor}
+                      className={nightclubFloors === floor ? "active" : ""}
+                      onClick={() => setNightclubFloors(floor)}
+                    >
+                      {floor}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div id="nightclub-products">
+                <p>Products:</p>
+                <div className="product-list">
+                  {NIGHTCLUB_GOODS.map((good) => (
+                    <label key={good.id} className="product-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={nightclubProducts.includes(good.id)}
+                        onChange={() => handleToggleNightclubProduct(good.id)}
+                      />
+                      <span>{good.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
         <div id="buttons">
           <button onClick={() => setActiveBusinessPopup(null)}>Cancel</button>
