@@ -48,13 +48,13 @@ const BUSINESS_NAMES = {
 };
 
 const NIGHTCLUB_GOODS = [
-  { id: 'cargo', name: 'Cargo & Shipments' },
-  { id: 'sporting', name: 'Sporting Goods' },
-  { id: 'imports', name: 'South American Imports' },
-  { id: 'pharma', name: 'Pharmaceutical Research' },
-  { id: 'cash', name: 'Cash Creation' },
-  { id: 'organic', name: 'Organic Produce' },
-  { id: 'printing', name: 'Printing & Copying' },
+  { id: 'cargo', name: 'Cargo & Shipments', productionTime: 48 * 60 },
+  { id: 'sporting', name: 'Sporting Goods', productionTime: 40 * 60 },
+  { id: 'imports', name: 'South American Imports', productionTime: 40 * 60 },
+  { id: 'pharma', name: 'Pharmaceutical Research', productionTime: 30 * 60 },
+  { id: 'cash', name: 'Cash Creation', productionTime: 20 * 60 },
+  { id: 'organic', name: 'Organic Produce', productionTime: 20 * 60 },
+  { id: 'printing', name: 'Printing & Copying', productionTime: 15 * 60 },
 ];
 
 // Production times: How long it takes to convert 100% supplies to 100% product (in seconds)
@@ -169,24 +169,49 @@ function App() {
 
         // Process each owned business
         ownedBusinesses.forEach((businessId) => {
-          const supplies = updated[businessId]?.supplies ?? 0;
-          const product = updated[businessId]?.product ?? 0;
-          const productionTime = PRODUCTION_TIME_SECONDS[businessId] ?? 0;
+          // Handle nightclub separately (passive production)
+          if (businessId === "nightclub") {
+            nightclubProducts.forEach((productId) => {
+              const good = NIGHTCLUB_GOODS.find(g => g.id === productId);
+              if (!good) return;
+              
+              const productKey = `nightclub_${productId}_product`;
+              const productVal = updated[businessId]?.[productKey] ?? 0;
+              
+              // Only produce if product hasn't maxed out
+              if (productVal < 100) {
+                // Calculate rate per second: 1% per productionTime seconds
+                const ratePerSecond = 1 / good.productionTime;
+                const newProduct = Math.min(100, productVal + ratePerSecond);
+                
+                updated[businessId] = {
+                  ...updated[businessId],
+                  [productKey]: newProduct,
+                };
+                hasChanges = true;
+              }
+            });
+          } else {
+            // Handle other businesses (supply-based production)
+            const supplies = updated[businessId]?.supplies ?? 0;
+            const product = updated[businessId]?.product ?? 0;
+            const productionTime = PRODUCTION_TIME_SECONDS[businessId] ?? 0;
 
-          // Only produce if there are supplies, production hasn't maxed out, and time is configured
-          if (supplies > 0 && product < 100 && productionTime > 0) {
-            // Calculate how much to change per second (as percentage)
-            const ratePerSecond = 100 / productionTime;
+            // Only produce if there are supplies, production hasn't maxed out, and time is configured
+            if (supplies > 0 && product < 100 && productionTime > 0) {
+              // Calculate how much to change per second (as percentage)
+              const ratePerSecond = 100 / productionTime;
 
-            const newSupplies = Math.max(0, supplies - ratePerSecond);
-            const newProduct = Math.min(100, product + ratePerSecond);
+              const newSupplies = Math.max(0, supplies - ratePerSecond);
+              const newProduct = Math.min(100, product + ratePerSecond);
 
-            updated[businessId] = {
-              ...updated[businessId],
-              supplies: newSupplies,
-              product: newProduct,
-            };
-            hasChanges = true;
+              updated[businessId] = {
+                ...updated[businessId],
+                supplies: newSupplies,
+                product: newProduct,
+              };
+              hasChanges = true;
+            }
           }
         });
 
@@ -195,7 +220,7 @@ function App() {
     }, 1000); // Run every second
 
     return () => clearInterval(interval);
-  }, [ownedBusinesses, isPaused]);
+  }, [ownedBusinesses, isPaused, nightclubProducts]);
 
   // markers
   // Example markers in pixel coordinates [x, y] relative to the 8192x8192 image
@@ -450,14 +475,16 @@ function App() {
               })}
             </tbody>
           </table>
-          <div className="button-row">
-            <button
-              className="button blue"
-              onClick={() => handleSell(businessId)}
-            >
-              Sell
-            </button>
-          </div>
+          {nightclubProducts.length > 0 && (
+            <div className="button-row">
+              <button
+                className="button blue"
+                onClick={() => handleSell(businessId)}
+              >
+                Sell
+              </button>
+            </div>
+          )}
         </div>
       );
     }
@@ -613,7 +640,7 @@ function App() {
           {activeBusinessPopup === "nightclub" && (
             <>
               <div id="nightclub-floors">
-                <p>Floors: Select 1-5</p>
+                <p>Floors: </p>
                 <div className="button-group">
                   {[1, 2, 3, 4, 5].map((floor) => (
                     <button
