@@ -74,6 +74,24 @@ body {
   padding: 2rem;
 }
 
+/* Mobile view - only show content section */
+@media (max-width: 768px) {
+  .map-section {
+    display: none;
+  }
+  
+  #choice2,
+  #choice2 p,
+  #choice2 .button-group {
+    display: none !important;
+  }
+  
+  .content-section {
+    max-width: 100%;
+    flex: 1;
+  }
+}
+
 img {
   max-width: 100%;
   height: auto;
