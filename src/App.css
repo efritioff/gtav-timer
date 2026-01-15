@@ -355,10 +355,39 @@ img {
 }
 
 .product-checkbox input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
   cursor: pointer;
-  accent-color: var(--red-cta);
+  border: 2px solid var(--neutral-light-clr);
+  border-radius: 4px;
+  background-color: transparent;
+  position: relative;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.product-checkbox input[type="checkbox"]:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+  background-color: var(--white-opacity-10-clr);
+}
+
+.product-checkbox input[type="checkbox"]:checked {
+  background-color: var(--red-cta);
+  border-color: var(--red-cta);
+}
+
+.product-checkbox input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  width: 6px;
+  height: 11px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
 }
 
 .product-checkbox span {
