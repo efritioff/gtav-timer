@@ -118,6 +118,22 @@ function App() {
       return [];
     }
   });
+  const [boosts, setBoosts] = useState(() => {
+    try {
+      const saved = localStorage.getItem("boosts");
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [boostCooldowns, setBoostCooldowns] = useState(() => {
+    try {
+      const saved = localStorage.getItem("boostCooldowns");
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
 
   useEffect(() => {
     const sliders = document.querySelectorAll(".slider");
@@ -156,6 +172,51 @@ function App() {
   useEffect(() => {
     localStorage.setItem("nightclubProducts", JSON.stringify(nightclubProducts));
   }, [nightclubProducts]);
+
+  useEffect(() => {
+    localStorage.setItem("boosts", JSON.stringify(boosts));
+  }, [boosts]);
+
+  useEffect(() => {
+    localStorage.setItem("boostCooldowns", JSON.stringify(boostCooldowns));
+  }, [boostCooldowns]);
+
+  // Boost system: Check if boosts have expired and remove them
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setBoosts((prev) => {
+        const updated = { ...prev };
+        let hasChanges = false;
+
+        Object.keys(updated).forEach((businessId) => {
+          if (updated[businessId] && updated[businessId] < now) {
+            delete updated[businessId];
+            hasChanges = true;
+          }
+        });
+
+        return hasChanges ? updated : prev;
+      });
+
+      // Check and remove expired cooldowns
+      setBoostCooldowns((prev) => {
+        const updated = { ...prev };
+        let hasChanges = false;
+
+        Object.keys(updated).forEach((businessId) => {
+          if (updated[businessId] && updated[businessId] < now) {
+            delete updated[businessId];
+            hasChanges = true;
+          }
+        });
+
+        return hasChanges ? updated : prev;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Production system: Convert supplies to product based on real GTA Online timings
   useEffect(() => {
@@ -199,8 +260,12 @@ function App() {
 
             // Only produce if there are supplies, production hasn't maxed out, and time is configured
             if (supplies > 0 && product < 100 && productionTime > 0) {
+              // Check if boost is active
+              const isBoostActive = boosts[businessId] && boosts[businessId] > Date.now();
+              const speedMultiplier = isBoostActive ? 2 : 1;
+              
               // Calculate how much to change per second (as percentage)
-              const ratePerSecond = 100 / productionTime;
+              const ratePerSecond = (100 / productionTime) * speedMultiplier;
 
               const newSupplies = Math.max(0, supplies - ratePerSecond);
               const newProduct = Math.min(100, product + ratePerSecond);
@@ -220,7 +285,7 @@ function App() {
     }, 1000); // Run every second
 
     return () => clearInterval(interval);
-  }, [ownedBusinesses, isPaused, nightclubProducts]);
+  }, [ownedBusinesses, isPaused, nightclubProducts, boosts]);
 
   // markers
   // Example markers in pixel coordinates [x, y] relative to the 8192x8192 image
@@ -274,6 +339,16 @@ function App() {
     { geocode: [4920, 1940], popUp: "El Burro Heights", blipId: 499 },
     { geocode: [4750, 1100], popUp: "Strawberry", blipId: 499 },
     { geocode: [4760, 1100], popUp: "Strawberry", blipId: 499 },
+    // Import/Export
+    { geocode: [4190, 1150], popUp: "Elysian Island", blipId: 524 },
+    { geocode: [3470, 1680], popUp: "LSIA(West)", blipId: 524 },
+    { geocode: [3830, 1620], popUp: "LSIA(East)", blipId: 524 },
+    { geocode: [3770, 1850], popUp: "La Puerta", blipId: 524 },
+    { geocode: [4140, 1870], popUp: "Davis", blipId: 524 },
+    { geocode: [4575, 1630], popUp: "Cypress Flats", blipId: 524 },
+    { geocode: [4665, 1810], popUp: "La Mesa", blipId: 524 },
+    { geocode: [4770, 2150], popUp: "Murrieta Heights", blipId: 524 },
+    { geocode: [5090, 1950], popUp: "El Burro Heights", blipId: 524 },
   ];
 
   const getIcon = (blipId, opacity = 1) =>
@@ -360,6 +435,48 @@ function App() {
     } else {
       setBusinessValue(businessId, "product", 0);
     }
+  };
+
+  const handleBoost = (businessId) => {
+    // Boost lasts 45 minutes (45 * 60 * 1000 milliseconds)
+    const boostEndTime = Date.now() + 45 * 60 * 1000;
+    setBoosts((prev) => ({
+      ...prev,
+      [businessId]: boostEndTime,
+    }));
+
+    // Set 24-hour cooldown after boost is activated
+    const cooldownEndTime = Date.now() + 24 * 60 * 60 * 1000;
+    setBoostCooldowns((prev) => ({
+      ...prev,
+      [businessId]: cooldownEndTime,
+    }));
+  };
+
+  const getBoostTimeRemaining = (businessId) => {
+    const boostEndTime = boosts[businessId];
+    if (!boostEndTime || boostEndTime < Date.now()) {
+      return null;
+    }
+    
+    const remainingMs = boostEndTime - Date.now();
+    const minutes = Math.floor(remainingMs / 60000);
+    const seconds = Math.floor((remainingMs % 60000) / 1000);
+    
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const getBoostCooldownRemaining = (businessId) => {
+    const cooldownEndTime = boostCooldowns[businessId];
+    if (!cooldownEndTime || cooldownEndTime < Date.now()) {
+      return null;
+    }
+    
+    const remainingMs = cooldownEndTime - Date.now();
+    const hours = Math.floor(remainingMs / 3600000);
+    const minutes = Math.floor((remainingMs % 3600000) / 60000);
+    
+    return `${hours}h ${minutes}m`;
   };
 
   const handleSetLocation = () => {
@@ -553,6 +670,26 @@ function App() {
           >
             Sell
           </button>
+          {businessId === "acid" && (
+            <button
+              className="button orange"
+              onClick={() => handleBoost(businessId)}
+              disabled={boosts[businessId] && boosts[businessId] > Date.now() || boostCooldowns[businessId] && boostCooldowns[businessId] > Date.now()}
+              title={
+                getBoostTimeRemaining(businessId)
+                  ? `Boost active: ${getBoostTimeRemaining(businessId)} remaining`
+                  : getBoostCooldownRemaining(businessId)
+                  ? `Cooldown: ${getBoostCooldownRemaining(businessId)} remaining`
+                  : "Double production speed for 45 min"
+              }
+            >
+              {getBoostTimeRemaining(businessId)
+                ? `Boost ${getBoostTimeRemaining(businessId)}`
+                : getBoostCooldownRemaining(businessId)
+                ? `Cooldown ${getBoostCooldownRemaining(businessId)}`
+                : "Boost"}
+            </button>
+          )}
         </div>
       </div>
     );

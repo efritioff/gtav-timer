@@ -537,6 +537,10 @@ tr.supplies .slider {
   background-color: #007bff;
 }
 
+.button.orange {
+  background-color: #fd7e14;
+}
+
 [id^="business"] {
   display: flex;
   flex-direction: column;
